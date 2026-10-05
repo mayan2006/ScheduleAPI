@@ -1,63 +1,126 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Schedule.Core.DTOs;
 using Schedule.Core.Model;
 using Schedule.Core.Repositories;
 using Schedule.Core.Service;
-using Schedule.Data.Repositories;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Schedule.Service
 {
-    public class StudentService:IStudentService
+    public class StudentService : IStudentService
     {
-        public readonly IStudentRepository _studentRepository;
+        private readonly IRepositoryManager _manager;
 
-        public StudentService(IStudentRepository studentRepository)
+        public StudentService(IRepositoryManager manager)
         {
-            _studentRepository = studentRepository;
+            _manager = manager;
         }
-        public List<Student> GetAll()
-        {
 
-            return _studentRepository.GetList();
+        public async Task<List<StudentDto>> GetAll()
+        {
+            var students = await _manager.Students.GetList();
+            return students.Select(MapToDto).ToList();
         }
-        public Student? GetById(int id)
-        {
 
-            return _studentRepository.GetById(id);
-
-        }
-        public void AddStudent(Student student)
+        public async Task<PagedResult<StudentDto>> GetPaged(int page, int pageSize)
         {
-            _studentRepository.GetList().Add(student);
-        }
-        public void UpdateStudent(int id, Student student)
-        {
+            var (items, totalCount) = await _manager.Students.GetPaged(page, pageSize);
 
-            var updatedStudent = _studentRepository.GetList().FirstOrDefault(s => s.Id == id);
-            if (updatedStudent == null)
+            return new PagedResult<StudentDto>
             {
-                return; // returns HTTP 404 if the student isn't found
+                Items = items.Select(MapToDto).ToList(),
+                Page = page < 1 ? 1 : page,
+                PageSize = pageSize < 1 ? 10 : pageSize,
+                TotalCount = totalCount
+            };
+        }
+
+        public async Task<StudentDto?> GetById(int id)
+        {
+            var student = await _manager.Students.GetById(id);
+            return student == null ? null : MapToDto(student);
+        }
+
+        public async Task<StudentDto> AddStudent(StudentCreateDto dto)
+        {
+            var student = new Student
+            {
+                FirstName = dto.FirstName,
+                LastName = dto.LastName,
+                Birthdate = dto.Birthdate,
+                ClassId = NormalizeClassId(dto.ClassId)
+            };
+
+            ApplyUniform(student, dto.UniformColor, dto.UniformSize);
+            _manager.Students.AddStudent(student);
+            await _manager.SaveAsync();
+
+            return MapToDto(student);
+        }
+
+        public async Task<StudentDto?> UpdateStudent(int id, StudentUpdateDto dto)
+        {
+            var existing = await _manager.Students.GetById(id);
+            if (existing == null)
+                return null;
+
+            existing.FirstName = dto.FirstName;
+            existing.LastName = dto.LastName;
+            existing.Birthdate = dto.Birthdate;
+            existing.ClassId = NormalizeClassId(dto.ClassId);
+            ApplyUniform(existing, dto.UniformColor, dto.UniformSize);
+            await _manager.SaveAsync();
+
+            return MapToDto(existing);
+        }
+
+        public async Task<bool> DeleteStudent(int id)
+        {
+            if (await _manager.Students.GetById(id) == null)
+                return false;
+
+            _manager.Students.DeleteStudent(id);
+            await _manager.SaveAsync();
+            return true;
+        }
+
+        private static int? NormalizeClassId(int? classId)
+        {
+            return classId is null or 0 ? null : classId;
+        }
+
+        private static void ApplyUniform(Student student, string? color, int? size)
+        {
+            if (string.IsNullOrWhiteSpace(color) && !size.HasValue)
+                return;
+
+            if (student.Uniform == null)
+            {
+                student.Uniform = new Uniform
+                {
+                    Color = color ?? string.Empty,
+                    Size = size ?? 0
+                };
+                return;
             }
 
-            // Update the student's data
-            student.FirstName = updatedStudent.FirstName;
-            student.LastName = updatedStudent.LastName;
-            student.Birthdate = updatedStudent.Birthdate;
-            //student.StudentClass = updatedStudent.StudentClass;
+            if (!string.IsNullOrWhiteSpace(color))
+                student.Uniform.Color = color;
+            if (size.HasValue)
+                student.Uniform.Size = size.Value;
         }
-        public void DeleteStudent(int id)
+
+        private static StudentDto MapToDto(Student student)
         {
-            var Student = _studentRepository.GetList().FirstOrDefault(s => s.Id == id);
-            if (Student != null)
+            return new StudentDto
             {
-                _studentRepository.GetList().Remove(Student);   // returns HTTP 404 if the student isn't found
-            }
-
+                Id = student.Id,
+                FirstName = student.FirstName,
+                LastName = student.LastName,
+                Birthdate = student.Birthdate,
+                ClassId = student.ClassId,
+                ClassName = student.Class?.Name,
+                UniformSize = student.Uniform?.Size,
+                UniformColor = student.Uniform?.Color
+            };
         }
-
     }
 }

@@ -1,0 +1,124 @@
+@page "/classes"
+@inject ScheduleApi Api
+
+<h1>כיתות</h1>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <p class="error">@errorMessage</p>
+}
+
+<section class="card">
+    <h2>הוספה</h2>
+    <EditForm Model="newClass" OnValidSubmit="AddClass">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <div class="form-grid">
+            <label>
+                שם כיתה
+                <InputText @bind-Value="newClass.Name" />
+            </label>
+        </div>
+        <button type="submit" disabled="@isSaving">הוספה</button>
+    </EditForm>
+</section>
+
+@if (classes is null)
+{
+    <p>טוען...</p>
+}
+else if (classes.Count == 0)
+{
+    <p>אין כיתות עדיין.</p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th>שם</th>
+                <th>תלמידות</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var schoolClass in classes)
+            {
+                <tr>
+                    <td>@schoolClass.Name</td>
+                    <td>@schoolClass.Students.Count</td>
+                    <td>
+                        <button class="danger" @onclick="() => DeleteClass(schoolClass.Id)">מחיקה</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<ClassDto>? classes;
+    private ClassCreateDto newClass = new();
+    private string? errorMessage;
+    private bool isSaving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadClasses();
+    }
+
+    private async Task LoadClasses()
+    {
+        try
+        {
+            classes = await Api.GetClassesAsync() ?? new List<ClassDto>();
+            errorMessage = null;
+        }
+        catch (Exception)
+        {
+            classes = new List<ClassDto>();
+            errorMessage = "לא מצליחה להגיע ל-API. הפעילי קודם את Schedule.API.";
+        }
+    }
+
+    private async Task AddClass()
+    {
+        isSaving = true;
+        errorMessage = null;
+        try
+        {
+            var response = await Api.CreateClassAsync(newClass);
+            if (!response.IsSuccessStatusCode)
+            {
+                var details = await response.Content.ReadAsStringAsync();
+                errorMessage = string.IsNullOrWhiteSpace(details)
+                    ? $"ההוספה נכשלה ({(int)response.StatusCode})."
+                    : $"ההוספה נכשלה ({(int)response.StatusCode}): {details}";
+                return;
+            }
+
+            newClass = new ClassCreateDto();
+            await LoadClasses();
+        }
+        catch (Exception)
+        {
+            errorMessage = "לא מצליחה להגיע ל-API. ודאי ש-Schedule.API רץ.";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task DeleteClass(int id)
+    {
+        var response = await Api.DeleteClassAsync(id);
+        if (!response.IsSuccessStatusCode)
+        {
+            errorMessage = "המחיקה נכשלה.";
+            return;
+        }
+
+        await LoadClasses();
+    }
+}

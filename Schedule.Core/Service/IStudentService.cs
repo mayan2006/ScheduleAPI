@@ -1,20 +1,14 @@
-﻿using Schedule.Core.Model;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Schedule.Core.DTOs;
 
 namespace Schedule.Core.Service
 {
     public interface IStudentService
     {
-        public List<Student> GetAll();
-        public Student? GetById(int id);
-        public void AddStudent(Student student);
-
-        public void UpdateStudent(int id, Student student);
-        public void DeleteStudent(int id);
-
+        Task<List<StudentDto>> GetAll();
+        Task<PagedResult<StudentDto>> GetPaged(int page, int pageSize);
+        Task<StudentDto?> GetById(int id);
+        Task<StudentDto> AddStudent(StudentCreateDto student);
+        Task<StudentDto?> UpdateStudent(int id, StudentUpdateDto student);
+        Task<bool> DeleteStudent(int id);
     }
 }

@@ -1,9 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Schedule.Core.Model;
+using Schedule.Core.DTOs;
 using Schedule.Core.Service;
-using Schedule.Data;
-
-// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
 namespace Schedule.API.Controllers
 {
@@ -11,70 +8,56 @@ namespace Schedule.API.Controllers
     [ApiController]
     public class StudentController : ControllerBase
     {
-
         private readonly IStudentService _studentService;
+
         public StudentController(IStudentService studentService)
         {
-            _studentService=studentService;
+            _studentService = studentService;
         }
 
-        // GET: api/<StudentController>
-        //שליפה של כל התלמידות
         [HttpGet]
-        public ActionResult Get()
+        public async Task<IActionResult> Get([FromQuery] int? page, [FromQuery] int? pageSize)
         {
-           var students= _studentService.GetAll();
-            return Ok(students);
+            if (page is null && pageSize is null)
+                return Ok(await _studentService.GetAll());
+
+            return Ok(await _studentService.GetPaged(page ?? 1, pageSize ?? 10));
         }
 
-        // GET api/<StudentController>/5
-        //שליפה של תלמידה לפי id
         [HttpGet("{id}")]
-
-        public ActionResult Get(int id)
+        public async Task<ActionResult<StudentDto>> Get(int id)
         {
-           var student = _studentService.GetById(id);
-            return Ok(student);
-
-        }
-
-
-        ////// POST api/<StudentController>
-        //////הוספה של תלמידה
-        [HttpPost]
-        public void Post([FromBody] Student newStudent)
-        {
-            _studentService.GetAll().Add(newStudent);
-        }
-
-
-        //////PUT api/<StudentController>/5
-        [HttpPut("{id}")]
-        public void Put(int id, [FromBody] Student updatedStudent)
-        {
-            var student = _studentService.GetAll().FirstOrDefault(s => s.Id == id);
-            if (student == null)
-            {
-                return; // returns HTTP 404 if the student isn't found
-            }
-
-            // Update the student's data
-            student.FirstName = updatedStudent.FirstName;
-            student.LastName = updatedStudent.LastName;
-            student.Birthdate = updatedStudent.Birthdate;
-            //student.StudentClass = updatedStudent.StudentClass;
-
-        }
-
-        [HttpDelete("{id}")]
-        public IActionResult Delete(int id)
-        {
-            var student = _studentService.GetAll().FirstOrDefault(s => s.Id == id);
+            var student = await _studentService.GetById(id);
             if (student == null)
                 return NotFound();
 
-            _studentService.GetAll().Remove(student);
-            return NoContent(); // 204
+            return Ok(student);
+        }
+
+        [HttpPost]
+        public async Task<ActionResult<StudentDto>> Post([FromBody] StudentCreateDto newStudent)
+        {
+            var created = await _studentService.AddStudent(newStudent);
+            return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<ActionResult<StudentDto>> Put(int id, [FromBody] StudentUpdateDto updatedStudent)
+        {
+            var student = await _studentService.UpdateStudent(id, updatedStudent);
+            if (student == null)
+                return NotFound();
+
+            return Ok(student);
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            if (!await _studentService.DeleteStudent(id))
+                return NotFound();
+
+            return NoContent();
         }
     }
 }

@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Schedule.Core.Model
+﻿namespace Schedule.Core.Model
 {
     public class Student
     {
@@ -12,9 +6,10 @@ namespace Schedule.Core.Model
         public string FirstName { get; set; }
         public string LastName { get; set; }
         public DateTime Birthdate { get; set; }
-         public Uniform uniform { get; set; }
-  
 
+        public int? ClassId { get; set; }
+        public Class? Class { get; set; }
 
+        public Uniform? Uniform { get; set; }
     }
 }

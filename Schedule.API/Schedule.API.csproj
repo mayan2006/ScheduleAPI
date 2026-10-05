@@ -2,8 +2,10 @@
 
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
+    <RollForward>LatestMajor</RollForward>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>8c5bd5f9-7f36-4eb6-a018-7836ab6821c3</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

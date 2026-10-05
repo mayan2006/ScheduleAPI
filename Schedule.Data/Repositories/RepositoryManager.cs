@@ -1,26 +1,33 @@
 ﻿using Schedule.Core.Repositories;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Schedule.Data.Repositories
 {
-    public class RepositoryManager:IRepositoryManager
+    public class RepositoryManager : IRepositoryManager
     {
         private readonly DataContext _context;
+
         public IStudentRepository Students { get; }
-        public RepositoryManager(DataContext context, IStudentRepository
-        StudentRepository)
+        public IClassRepository Classes { get; }
+        public ITeacherRepository Teachers { get; }
+        public IUniformRepository Uniforms { get; }
+
+        public RepositoryManager(
+            DataContext context,
+            IStudentRepository studentRepository,
+            IClassRepository classRepository,
+            ITeacherRepository teacherRepository,
+            IUniformRepository uniformRepository)
         {
             _context = context;
-            Students = StudentRepository;
-        }
-        public void Save()
-        {
-            _context.SaveChanges();
+            Students = studentRepository;
+            Classes = classRepository;
+            Teachers = teacherRepository;
+            Uniforms = uniformRepository;
         }
 
+        public async Task SaveAsync()
+        {
+            await _context.SaveChangesAsync();
+        }
     }
 }

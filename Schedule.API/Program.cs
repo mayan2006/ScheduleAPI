@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Schedule.API.Middleware;
 using Schedule.Core.Repositories;
 using Schedule.Core.Service;
 using Schedule.Data;
@@ -14,14 +15,25 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-builder.Services.AddScoped<IStudentService,StudentService>();
+builder.Services.AddScoped<IStudentService, StudentService>();
+builder.Services.AddScoped<IClassService, ClassService>();
+builder.Services.AddScoped<ITeacherService, TeacherService>();
+builder.Services.AddScoped<IUniformService, UniformService>();
 builder.Services.AddScoped<IStudentRepository, StudentRepository>();
+builder.Services.AddScoped<IClassRepository, ClassRepository>();
+builder.Services.AddScoped<ITeacherRepository, TeacherRepository>();
+builder.Services.AddScoped<IUniformRepository, UniformRepository>();
+builder.Services.AddScoped<IRepositoryManager, RepositoryManager>();
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' was not found.");
+
 builder.Services.AddDbContext<DataContext>(
-    options => options.UseSqlServer(@"Server=R51047;Database=ScheduleDB;
-TrustServerCertificate=True;Trusted_Connection=True"));
+    options => options.UseSqlServer(connectionString));
 
 
 var app = builder.Build();
+
+app.UseMiddleware<ExceptionMiddleware>();
 
 
 

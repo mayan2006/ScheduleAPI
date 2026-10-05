@@ -22,6 +22,21 @@ namespace Schedule.Data.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder, 1L, 1);
 
+            modelBuilder.Entity("ClassTeacher", b =>
+                {
+                    b.Property<int>("ClassesId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TeachersId")
+                        .HasColumnType("int");
+
+                    b.HasKey("ClassesId", "TeachersId");
+
+                    b.HasIndex("TeachersId");
+
+                    b.ToTable("ClassTeacher");
+                });
+
             modelBuilder.Entity("Schedule.Core.Model.Class", b =>
                 {
                     b.Property<int>("Id")
@@ -29,6 +44,10 @@ namespace Schedule.Data.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -57,10 +76,6 @@ namespace Schedule.Data.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("StudentClass")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.HasKey("Id");
 
                     b.HasIndex("ClassId");
@@ -70,11 +85,11 @@ namespace Schedule.Data.Migrations
 
             modelBuilder.Entity("Schedule.Core.Model.Teacher", b =>
                 {
-                    b.Property<string>("Id")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<int?>("ClassId")
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
 
                     b.Property<string>("FirstName")
                         .IsRequired()
@@ -90,30 +105,79 @@ namespace Schedule.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ClassId");
-
                     b.ToTable("teachers");
+                });
+
+            modelBuilder.Entity("Schedule.Core.Model.Uniform", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
+
+                    b.Property<string>("Color")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Size")
+                        .HasColumnType("int");
+
+                    b.Property<int>("StudentId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StudentId")
+                        .IsUnique();
+
+                    b.ToTable("uniforms");
+                });
+
+            modelBuilder.Entity("ClassTeacher", b =>
+                {
+                    b.HasOne("Schedule.Core.Model.Class", null)
+                        .WithMany()
+                        .HasForeignKey("ClassesId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Schedule.Core.Model.Teacher", null)
+                        .WithMany()
+                        .HasForeignKey("TeachersId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Schedule.Core.Model.Student", b =>
                 {
-                    b.HasOne("Schedule.Core.Model.Class", null)
-                        .WithMany("students")
-                        .HasForeignKey("ClassId");
+                    b.HasOne("Schedule.Core.Model.Class", "Class")
+                        .WithMany("Students")
+                        .HasForeignKey("ClassId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Class");
                 });
 
-            modelBuilder.Entity("Schedule.Core.Model.Teacher", b =>
+            modelBuilder.Entity("Schedule.Core.Model.Uniform", b =>
                 {
-                    b.HasOne("Schedule.Core.Model.Class", null)
-                        .WithMany("teachers")
-                        .HasForeignKey("ClassId");
+                    b.HasOne("Schedule.Core.Model.Student", "Student")
+                        .WithOne("Uniform")
+                        .HasForeignKey("Schedule.Core.Model.Uniform", "StudentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Student");
                 });
 
             modelBuilder.Entity("Schedule.Core.Model.Class", b =>
                 {
-                    b.Navigation("students");
+                    b.Navigation("Students");
+                });
 
-                    b.Navigation("teachers");
+            modelBuilder.Entity("Schedule.Core.Model.Student", b =>
+                {
+                    b.Navigation("Uniform");
                 });
 #pragma warning restore 612, 618
         }

@@ -1,0 +1,224 @@
+@page "/"
+@inject ScheduleApi Api
+
+<h1>תלמידות</h1>
+
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <p class="error">@errorMessage</p>
+}
+
+<section class="card">
+    <h2>הוספה</h2>
+    <EditForm Model="newStudent" OnValidSubmit="AddStudent">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <div class="form-grid">
+            <label>
+                שם פרטי
+                <InputText @bind-Value="newStudent.FirstName" />
+            </label>
+            <label>
+                שם משפחה
+                <InputText @bind-Value="newStudent.LastName" />
+            </label>
+            <label>
+                תאריך לידה
+                <InputDate @bind-Value="newStudent.Birthdate" />
+            </label>
+            <label>
+                כיתה
+                <InputSelect @bind-Value="selectedClassId">
+                    <option value="">ללא כיתה</option>
+                    @foreach (var schoolClass in classes)
+                    {
+                        <option value="@schoolClass.Id">@schoolClass.Name</option>
+                    }
+                </InputSelect>
+            </label>
+        </div>
+        @if (classes.Count == 0)
+        {
+            <p>אין כיתות עדיין. אפשר <NavLink href="classes">להוסיף כיתה</NavLink> או לשמור תלמידה בלי כיתה.</p>
+        }
+        <button type="submit" disabled="@isSaving">הוספה</button>
+    </EditForm>
+</section>
+
+@if (pageResult is null)
+{
+    <p>טוען...</p>
+}
+else if (pageResult.TotalCount == 0)
+{
+    <p>אין תלמידות עדיין.</p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th>שם</th>
+                <th>תאריך לידה</th>
+                <th>כיתה</th>
+                <th>מדים</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var student in pageResult.Items)
+            {
+                <tr>
+                    <td>@student.FirstName @student.LastName</td>
+                    <td>@student.Birthdate.ToString("dd/MM/yyyy")</td>
+                    <td>@(student.ClassName ?? "—")</td>
+                    <td>
+                        @if (student.UniformColor is null)
+                        {
+                            <text>—</text>
+                        }
+                        else
+                        {
+                            @($"{student.UniformColor} / {student.UniformSize}")
+                        }
+                    </td>
+                    <td>
+                        <button class="danger" @onclick="() => DeleteStudent(student.Id)">מחיקה</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <div class="pager">
+        <button type="button" disabled="@(currentPage <= 1)" @onclick="PreviousPage">הקודם</button>
+        <span>עמוד @currentPage מתוך @pageResult.TotalPages (@pageResult.TotalCount תלמידות)</span>
+        <button type="button" disabled="@(currentPage >= pageResult.TotalPages)" @onclick="NextPage">הבא</button>
+    </div>
+}
+
+@code {
+    private PagedResult<StudentDto>? pageResult;
+    private List<ClassDto> classes = new();
+    private StudentCreateDto newStudent = CreateEmptyStudent();
+    private string selectedClassId = "";
+    private string? errorMessage;
+    private bool isSaving;
+    private int currentPage = 1;
+    private const int PageSize = 5;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStudents();
+        await LoadClasses();
+    }
+
+    private async Task LoadStudents()
+    {
+        try
+        {
+            pageResult = await Api.GetStudentsPagedAsync(currentPage, PageSize)
+                ?? new PagedResult<StudentDto> { Page = currentPage, PageSize = PageSize };
+            errorMessage = null;
+
+            if (pageResult.TotalPages > 0 && currentPage > pageResult.TotalPages)
+            {
+                currentPage = pageResult.TotalPages;
+                pageResult = await Api.GetStudentsPagedAsync(currentPage, PageSize)
+                    ?? pageResult;
+            }
+        }
+        catch (Exception)
+        {
+            pageResult = new PagedResult<StudentDto> { Page = currentPage, PageSize = PageSize };
+            errorMessage = "לא מצליחה להגיע ל-API. הפעילי קודם את Schedule.API.";
+        }
+    }
+
+    private async Task PreviousPage()
+    {
+        if (currentPage <= 1)
+            return;
+
+        currentPage--;
+        await LoadStudents();
+    }
+
+    private async Task NextPage()
+    {
+        if (pageResult is null || currentPage >= pageResult.TotalPages)
+            return;
+
+        currentPage++;
+        await LoadStudents();
+    }
+
+    private async Task LoadClasses()
+    {
+        try
+        {
+            classes = await Api.GetClassesAsync() ?? new List<ClassDto>();
+        }
+        catch (Exception)
+        {
+            classes = new List<ClassDto>();
+        }
+    }
+
+    private async Task AddStudent()
+    {
+        isSaving = true;
+        errorMessage = null;
+        newStudent.ClassId = int.TryParse(selectedClassId, out var classId) ? classId : null;
+        try
+        {
+            var response = await Api.CreateStudentAsync(newStudent);
+            if (!response.IsSuccessStatusCode)
+            {
+                var details = await response.Content.ReadAsStringAsync();
+                errorMessage = string.IsNullOrWhiteSpace(details)
+                    ? $"ההוספה נכשלה ({(int)response.StatusCode})."
+                    : $"ההוספה נכשלה ({(int)response.StatusCode}): {details}";
+                return;
+            }
+
+            newStudent = CreateEmptyStudent();
+            selectedClassId = "";
+            currentPage = 1;
+            await LoadStudents();
+            if (pageResult is { TotalPages: > 1 })
+            {
+                currentPage = pageResult.TotalPages;
+                await LoadStudents();
+            }
+        }
+        catch (Exception)
+        {
+            errorMessage = "לא מצליחה להגיע ל-API. ודאי ש-Schedule.API רץ.";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task DeleteStudent(int id)
+    {
+        var response = await Api.DeleteStudentAsync(id);
+        if (!response.IsSuccessStatusCode)
+        {
+            errorMessage = "המחיקה נכשלה.";
+            return;
+        }
+
+        await LoadStudents();
+    }
+
+    private static StudentCreateDto CreateEmptyStudent()
+    {
+        return new StudentCreateDto
+        {
+            Birthdate = new DateTime(2012, 1, 1)
+        };
+    }
+}
